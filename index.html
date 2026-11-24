@@ -2,21 +2,32 @@
 <html lang="el">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f19" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Neon Tap Dodge" />
+  <link id="dynamic-manifest" rel="manifest" />
+  <link id="apple-icon" rel="apple-touch-icon" />
+  <link id="favicon" rel="icon" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet" />
   <title>Neon Tap Dodge</title>
   <style>
     * {
       box-sizing: border-box;
       user-select: none;
       -webkit-user-select: none;
+      -webkit-touch-callout: none;
       touch-action: none;
     }
 
     body {
       margin: 0;
-      background: #0b0f19;
+      background: #060911;
       color: #ffffff;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -29,10 +40,10 @@
       width: 100%;
       max-width: 480px;
       height: 100%;
-      max-height: 860px;
-      background: linear-gradient(180deg, #111827 0%, #090d16 100%);
+      max-height: 880px;
+      background: #0b0f19;
       overflow: hidden;
-      box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
     }
 
     canvas {
@@ -43,143 +54,755 @@
 
     #hud {
       position: absolute;
-      top: 18px;
-      left: 18px;
-      right: 18px;
+      top: max(12px, env(safe-area-inset-top));
+      left: 12px;
+      right: 12px;
       display: flex;
       justify-content: space-between;
-      font-size: 18px;
-      font-weight: 700;
+      align-items: center;
+      gap: 6px;
       pointer-events: none;
-      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+      z-index: 5;
+    }
+
+    .hud-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-pill {
+      background: rgba(15, 23, 42, 0.68);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .icon-btn {
+      pointer-events: auto;
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #fff;
+      border-radius: 999px;
+      width: 34px;
+      height: 34px;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .icon-btn.muted {
+      opacity: 0.45;
+    }
+
+    #power-status {
+      position: absolute;
+      top: 58px;
+      left: 14px;
+      display: flex;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .power-badge {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 12px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      display: none;
+    }
+
+    .power-badge.active {
+      display: inline-block;
+    }
+
+    #level-banner {
+      position: absolute;
+      top: 94px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 10px 18px;
+      border-radius: 16px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      z-index: 6;
+      width: max-content;
+      max-width: 90%;
+    }
+
+    #level-banner.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #level-banner .b-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fde047;
+    }
+
+    #level-banner .b-sub {
+      font-size: 13px;
+      color: #e2e8f0;
+      margin-top: 2px;
     }
 
     #overlay {
       position: absolute;
       inset: 0;
-      background: rgba(9, 13, 22, 0.78);
+      background: rgba(7, 11, 20, 0.84);
+      backdrop-filter: blur(5px);
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       text-align: center;
-      padding: 24px;
+      padding: 22px;
+      z-index: 10;
     }
 
     #overlay.hidden {
       display: none;
     }
 
+    #trophy-display {
+      font-size: 56px;
+      margin-bottom: 8px;
+      line-height: 1.1;
+      filter: drop-shadow(0 0 18px rgba(250, 204, 21, 0.65));
+    }
+
+    #trophy-display.grand {
+      font-size: 84px;
+      animation: pulseTrophy 1.2s infinite alternate ease-in-out;
+    }
+
+    @keyframes pulseTrophy {
+      from { transform: scale(1); }
+      to { transform: scale(1.12); }
+    }
+
     h1 {
-      margin: 0 0 10px;
-      font-size: 32px;
+      margin: 0 0 8px;
+      font-size: 28px;
       color: #38bdf8;
     }
 
     p {
-      margin: 0 0 24px;
+      margin: 0 0 14px;
       color: #cbd5e1;
-      font-size: 16px;
+      font-size: 14px;
       line-height: 1.5;
+      max-width: 340px;
     }
 
-    button {
-      background: #38bdf8;
-      color: #090d16;
+    .kids-toggle-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 10px 16px;
+      border-radius: 14px;
+      margin-bottom: 14px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .kids-toggle-box input {
+      width: 18px;
+      height: 18px;
+      accent-color: #34d399;
+      cursor: pointer;
+    }
+
+    #awards-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 16px;
+      max-width: 350px;
+    }
+
+    .award-chip {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 10px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fef08a;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      max-width: 255px;
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+      color: #060911;
       border: none;
-      border-radius: 12px;
-      padding: 14px 28px;
-      font-size: 18px;
+      border-radius: 14px;
+      padding: 13px 24px;
+      font-size: 17px;
       font-weight: 800;
       cursor: pointer;
+      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.35);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #install-hint {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #94a3b8;
+      max-width: 320px;
+    }
+
+    #creator-signature {
+      position: fixed;
+      bottom: max(10px, env(safe-area-inset-bottom));
+      right: 16px;
+      z-index: 20;
+      pointer-events: none;
+      font-family: "Great Vibes", cursive, Georgia, serif;
+      font-size: 28px;
+      letter-spacing: 0.5px;
+      color: #fde047;
+      text-shadow: 0 2px 12px rgba(250, 204, 21, 0.45), 0 1px 3px rgba(0, 0, 0, 0.9);
+      transform: rotate(-3deg);
     }
   </style>
 </head>
 <body>
   <div id="game-container">
     <canvas id="gameCanvas"></canvas>
+
     <div id="hud">
-      <div id="score">Σκορ: 0</div>
-      <div id="best">Ρεκόρ: 0</div>
+      <div class="hud-group">
+        <div class="hud-pill" id="levelHud">Πίστα 1/5</div>
+        <div class="hud-pill" id="scoreHud">Σκορ: 0 / 4</div>
+      </div>
+      <div class="hud-group">
+        <div class="hud-pill" id="bestHud">Ρεκόρ: 0</div>
+        <button id="musicBtn" class="icon-btn" aria-label="Μουσική" title="Χαρούμενη Μουσική">🎵</button>
+        <button id="soundBtn" class="icon-btn" aria-label="Ήχοι" title="Ηχητικά Εφέ">🔊</button>
+        <button id="vibeBtn" class="icon-btn" aria-label="Δόνηση" title="Δόνηση">📳</button>
+      </div>
     </div>
+
+    <div id="power-status">
+      <div class="power-badge" id="shieldBadge" style="color:#67e8f9;">🛡️ Ασπίδα</div>
+      <div class="power-badge" id="magnetBadge" style="color:#f472b6;">🧲 Μαγνήτης</div>
+    </div>
+
+    <div id="level-banner">
+      <div class="b-title" id="bannerTitle">Πίστα 2!</div>
+      <div class="b-sub" id="bannerSub">Βραβείο Πίστας 1: 🥉 Χάλκινο Αστέρι</div>
+    </div>
+
     <div id="overlay">
+      <div id="trophy-display">😊</div>
       <h1 id="title">Neon Tap Dodge</h1>
-      <p id="subtitle">Κράτα πατημένο στην οθόνη για να ανεβαίνεις, άφησε για να πέφτεις. Απόφυγε τις κόκκινες μπάρες!</p>
-      <button id="startBtn">Παίξε Τώρα</button>
+      <p id="subtitle">Κράτα πατημένο για να ανεβαίνεις, άφησε για να πέφτεις. Μάζεψε αστέρια (+3), ασπίδες 🛡️ και μαγνήτες 🧲!</p>
+
+      <label class="kids-toggle-box" for="kidsModeToggle">
+        <input type="checkbox" id="kidsModeToggle" />
+        <span>🧸 Παιδική Λειτουργία (πιο αργά &amp; πιο φαρδιά)</span>
+      </label>
+
+      <div id="awards-list"></div>
+      <div class="btn-row">
+        <button id="startBtn" class="primary">Παίξε Τώρα</button>
+        <button id="installBtn" class="secondary" style="display:none;">📲 Εγκατάσταση στο Κινητό</button>
+      </div>
+      <div id="install-hint"></div>
     </div>
   </div>
 
+  <div id="creator-signature">Fani Pist</div>
+
   <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+    // --- 1. ΕΙΚΟΝΙΔΙΟ ΜΠΑΛΑΣ & ΕΝΙΑΙΟ MANIFEST / SERVICE WORKER ---
+    let ballIconDataUrl = "";
+    function generateBallIcon() {
+      const iconCanvas = document.createElement("canvas");
+      iconCanvas.width = 512;
+      iconCanvas.height = 512;
+      const ictx = iconCanvas.getContext("2d");
 
-    const scoreEl = document.getElementById("score");
-    const bestEl = document.getElementById("best");
-    const overlay = document.getElementById("overlay");
-    const titleEl = document.getElementById("title");
-    const subtitleEl = document.getElementById("subtitle");
-    const startBtn = document.getElementById("startBtn");
+      const bgGrad = ictx.createLinearGradient(0, 0, 512, 512);
+      bgGrad.addColorStop(0, "#0f172a");
+      bgGrad.addColorStop(1, "#060911");
+      ictx.fillStyle = bgGrad;
+      ictx.fillRect(0, 0, 512, 512);
 
-    let width = 0;
-    let height = 0;
-    let animationId = null;
-    let gameRunning = false;
-    let holding = false;
+      const glow = ictx.createRadialGradient(256, 256, 40, 256, 256, 210);
+      glow.addColorStop(0, "rgba(56, 189, 248, 0.55)");
+      glow.addColorStop(1, "rgba(56, 189, 248, 0)");
+      ictx.fillStyle = glow;
+      ictx.beginPath();
+      ictx.arc(256, 256, 210, 0, Math.PI * 2);
+      ictx.fill();
 
-    let score = 0;
-    let bestScore = Number(localStorage.getItem("neon_tap_best") || 0);
-    bestEl.textContent = `Ρεκόρ: ${bestScore}`;
+      const ballGrad = ictx.createRadialGradient(215, 210, 20, 256, 256, 135);
+      ballGrad.addColorStop(0, "#bae6fd");
+      ballGrad.addColorStop(0.45, "#38bdf8");
+      ballGrad.addColorStop(1, "#0284c7");
+      ictx.fillStyle = ballGrad;
+      ictx.beginPath();
+      ictx.arc(256, 256, 135, 0, Math.PI * 2);
+      ictx.fill();
 
-    // Ήχοι χωρίς εξωτερικά αρχεία (Web Audio API)
+      ballIconDataUrl = iconCanvas.toDataURL("image/png");
+      document.getElementById("apple-icon").href = ballIconDataUrl;
+      document.getElementById("favicon").href = ballIconDataUrl;
+
+      const manifestObj = {
+        name: "Neon Tap Dodge",
+        short_name: "Tap Dodge",
+        description: "Διασκεδαστικό arcade παιχνίδι 5 πιστών για κινητό!",
+        start_url: window.location.href,
+        display: "standalone",
+        orientation: "portrait",
+        background_color: "#0b0f19",
+        theme_color: "#0b0f19",
+        icons: [
+          {
+            src: ballIconDataUrl,
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable"
+          }
+        ]
+      };
+      const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: "application/json" });
+      document.getElementById("dynamic-manifest").href = URL.createObjectURL(manifestBlob);
+    }
+    generateBallIcon();
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        const swCode = `
+          self.addEventListener("install", (event) => {
+            self.skipWaiting();
+          });
+          self.addEventListener("activate", (event) => {
+            event.waitUntil(self.clients.claim());
+          });
+          self.addEventListener("fetch", (event) => {
+            event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+          });
+        `;
+        const swBlob = new Blob([swCode], { type: "application/javascript" });
+        navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+      });
+    }
+
+    let deferredPrompt = null;
+    const installBtn = document.getElementById("installBtn");
+    const installHint = document.getElementById("install-hint");
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = "block";
+    });
+
+    installBtn.addEventListener("click", async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installBtn.style.display = "none";
+    });
+
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+    if (isIos && !isStandalone) {
+      installHint.textContent = "iPhone: Πάτα το κουμπί Κοινής Χρήσης (⬆️) κάτω και «Προσθήκη στην Οθόνη Αφετηρίας» για εγκατάσταση με εικονίδιο!";
+    }
+
+    // --- 2. ΗΧΟΙ, ΧΑΡΟΥΜΕΝΗ ΜΟΥΣΙΚΗ & ΔΟΝΗΣΗ ---
     let audioCtx = null;
+    let soundEnabled = true;
+    let musicEnabled = true;
+    let vibeEnabled = true;
+    let musicTimer = null;
+    let musicStep = 0;
 
-    function playTone(freq, duration, type = "sine", volume = 0.12) {
+    const soundBtn = document.getElementById("soundBtn");
+    const musicBtn = document.getElementById("musicBtn");
+    const vibeBtn = document.getElementById("vibeBtn");
+
+    function vibrateDevice(pattern) {
+      if (!vibeEnabled) return;
+      if (navigator.vibrate) {
+        try { navigator.vibrate(pattern); } catch (e) {}
+      }
+    }
+
+    function unlockAudio() {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
-
       if (!audioCtx) {
         audioCtx = new AudioContextClass();
       }
       if (audioCtx.state === "suspended") {
         audioCtx.resume();
       }
+      try {
+        const buffer = audioCtx.createBuffer(1, 1, 22050);
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start(0);
+      } catch (e) {}
+    }
 
+    ["touchstart", "pointerdown", "click"].forEach((evt) => {
+      window.addEventListener(evt, unlockAudio, { passive: true });
+    });
+
+    soundBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      soundEnabled = !soundEnabled;
+      soundBtn.classList.toggle("muted", !soundEnabled);
+      soundBtn.textContent = soundEnabled ? "🔊" : "🔇";
+      if (soundEnabled) {
+        unlockAudio();
+        playTone(520, 0.08, "sine", 0.15);
+      }
+    });
+
+    musicBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      musicEnabled = !musicEnabled;
+      musicBtn.classList.toggle("muted", !musicEnabled);
+      if (musicEnabled && gameRunning) {
+        startHappyMusic();
+      } else {
+        stopHappyMusic();
+      }
+    });
+
+    vibeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      vibeEnabled = !vibeEnabled;
+      vibeBtn.classList.toggle("muted", !vibeEnabled);
+      if (vibeEnabled) vibrateDevice(25);
+    });
+
+    function playTone(freq, duration, type = "sine", volume = 0.18, delay = 0) {
+      if (!soundEnabled) return;
+      unlockAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime + delay;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
 
       osc.type = type;
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      osc.frequency.setValueAtTime(freq, now);
 
-      gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(volume, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       osc.connect(gain);
       gain.connect(audioCtx.destination);
 
-      osc.start();
-      osc.stop(audioCtx.currentTime + duration);
+      osc.start(now);
+      osc.stop(now + duration + 0.02);
+    }
+
+    const HAPPY_MELODY = [
+      523.25, 659.25, 783.99, 1046.50,
+      783.99, 659.25, 880.00, 783.99,
+      587.33, 783.99, 987.77, 783.99,
+      659.25, 783.99, 659.25, 523.25
+    ];
+
+    function startHappyMusic() {
+      stopHappyMusic();
+      if (!musicEnabled) return;
+      unlockAudio();
+
+      const stepMs = kidsMode ? 260 : 210;
+      musicTimer = setInterval(() => {
+        if (!musicEnabled || !gameRunning || !audioCtx) return;
+        if (audioCtx.state === "suspended") audioCtx.resume();
+
+        const freq = HAPPY_MELODY[musicStep % HAPPY_MELODY.length] * (1 + currentLevelIndex * 0.03);
+        musicStep += 1;
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, now);
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.055, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.16);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.18);
+      }, stepMs);
+    }
+
+    function stopHappyMusic() {
+      if (musicTimer) {
+        clearInterval(musicTimer);
+        musicTimer = null;
+      }
     }
 
     function playScoreSound() {
-      playTone(660, 0.12, "sine", 0.12);
-      setTimeout(() => playTone(880, 0.14, "sine", 0.12), 70);
+      playTone(620, 0.11, "sine", 0.16, 0);
+      playTone(880, 0.14, "sine", 0.16, 0.06);
+    }
+
+    function playBonusSound() {
+      playTone(740, 0.1, "triangle", 0.2, 0);
+      playTone(987, 0.12, "triangle", 0.2, 0.07);
+      playTone(1318, 0.18, "triangle", 0.22, 0.14);
+      vibrateDevice(30);
+    }
+
+    function playPowerUpSound() {
+      playTone(587.33, 0.1, "sine", 0.2, 0);
+      playTone(880, 0.12, "sine", 0.2, 0.08);
+      playTone(1174.66, 0.18, "sine", 0.22, 0.16);
+      vibrateDevice(40);
+    }
+
+    function playShieldBlockSound() {
+      playTone(392, 0.12, "triangle", 0.22, 0);
+      playTone(523.25, 0.16, "triangle", 0.22, 0.08);
+      vibrateDevice([35, 30, 35]);
+    }
+
+    function playLevelUpSound() {
+      playTone(523.25, 0.14, "triangle", 0.2, 0);
+      playTone(659.25, 0.14, "triangle", 0.2, 0.1);
+      playTone(783.99, 0.14, "triangle", 0.2, 0.2);
+      playTone(1046.5, 0.28, "triangle", 0.24, 0.3);
+      vibrateDevice([40, 40, 60]);
+    }
+
+    function playVictorySound() {
+      stopHappyMusic();
+      const notes = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.5];
+      notes.forEach((n, idx) => {
+        playTone(n, idx === notes.length - 1 ? 0.45 : 0.16, "triangle", 0.24, idx * 0.12);
+      });
+      vibrateDevice([60, 50, 60, 50, 120]);
+    }
+
+    function playFireworkPop() {
+      playTone(180 + Math.random() * 240, 0.14, "sine", 0.1, 0);
     }
 
     function playGameOverSound() {
-      playTone(240, 0.22, "sawtooth", 0.14);
-      setTimeout(() => playTone(150, 0.3, "sawtooth", 0.14), 120);
+      stopHappyMusic();
+      playTone(260, 0.2, "sawtooth", 0.16, 0);
+      playTone(170, 0.32, "sawtooth", 0.16, 0.14);
+      vibrateDevice(120);
     }
+
+    // --- 3. 5 ΠΙΣΤΕΣ ΜΕ ΜΕΓΑΛΑ ΚΕΝΑ ---
+    const LEVELS = [
+      {
+        num: 1,
+        name: "Cyber Ocean",
+        targetScore: 4,
+        bgTop: "#0c192c",
+        bgBottom: "#060b16",
+        ballColor: "#38bdf8",
+        ballGlow: "rgba(56, 189, 248, 0.55)",
+        obsColor: "#f43f5e",
+        obsAccent: "#fda4af",
+        starColor: "#7dd3fc",
+        speed: 195,
+        gapRatio: 0.43,
+        award: "🥉 Χάλκινο Αστέρι"
+      },
+      {
+        num: 2,
+        name: "Emerald Matrix",
+        targetScore: 9,
+        bgTop: "#06241d",
+        bgBottom: "#040d0b",
+        ballColor: "#34d399",
+        ballGlow: "rgba(52, 211, 153, 0.55)",
+        obsColor: "#f59e0b",
+        obsAccent: "#fde68a",
+        starColor: "#6ee7b7",
+        speed: 220,
+        gapRatio: 0.41,
+        award: "🥈 Ασημένια Ασπίδα"
+      },
+      {
+        num: 3,
+        name: "Solar Sunset",
+        targetScore: 15,
+        bgTop: "#2b121d",
+        bgBottom: "#0f060c",
+        ballColor: "#fb923c",
+        ballGlow: "rgba(251, 146, 60, 0.55)",
+        obsColor: "#c084fc",
+        obsAccent: "#f3e8ff",
+        starColor: "#fdba74",
+        speed: 245,
+        gapRatio: 0.39,
+        award: "🥇 Χρυσό Μετάλλιο"
+      },
+      {
+        num: 4,
+        name: "Royal Nebula",
+        targetScore: 22,
+        bgTop: "#1e1035",
+        bgBottom: "#090414",
+        ballColor: "#e879f9",
+        ballGlow: "rgba(232, 121, 249, 0.55)",
+        obsColor: "#22d3ee",
+        obsAccent: "#cffafe",
+        starColor: "#f5d0fe",
+        speed: 270,
+        gapRatio: 0.37,
+        award: "💎 Διαμαντένιο Στέμμα"
+      },
+      {
+        num: 5,
+        name: "Golden Nova",
+        targetScore: 30,
+        bgTop: "#291d06",
+        bgBottom: "#0d0902",
+        ballColor: "#fde047",
+        ballGlow: "rgba(253, 224, 71, 0.65)",
+        obsColor: "#fb7185",
+        obsAccent: "#ffe4e6",
+        starColor: "#fef08a",
+        speed: 295,
+        gapRatio: 0.36,
+        award: "🏆 ΜΕΓΑΛΟ ΚΥΠΕΛΛΟ ΠΡΩΤΑΘΛΗΤΗ"
+      }
+    ];
+
+    // --- 4. ΚΑΤΑΣΤΑΣΗ ΠΑΙΧΝΙΔΙΟΥ ---
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const levelHud = document.getElementById("levelHud");
+    const scoreHud = document.getElementById("scoreHud");
+    const bestHud = document.getElementById("bestHud");
+    const shieldBadge = document.getElementById("shieldBadge");
+    const magnetBadge = document.getElementById("magnetBadge");
+    const kidsModeToggle = document.getElementById("kidsModeToggle");
+    const overlay = document.getElementById("overlay");
+    const trophyDisplay = document.getElementById("trophy-display");
+    const titleEl = document.getElementById("title");
+    const subtitleEl = document.getElementById("subtitle");
+    const awardsListEl = document.getElementById("awards-list");
+    const startBtn = document.getElementById("startBtn");
+    const levelBanner = document.getElementById("level-banner");
+    const bannerTitle = document.getElementById("bannerTitle");
+    const bannerSub = document.getElementById("bannerSub");
+
+    let width = 0;
+    let height = 0;
+    let animationId = null;
+    let gameRunning = false;
+    let victoryMode = false;
+    let holding = false;
+    let kidsMode = false;
+
+    let score = 0;
+    let bestScore = Number(localStorage.getItem("neon_tap_best") || 0);
+    bestHud.textContent = `Ρεκόρ: ${bestScore}`;
+
+    let currentLevelIndex = 0;
+    let earnedAwards = [];
+    let bannerTimeout = null;
+
+    let hasShield = false;
+    let magnetTimer = 0;
+    let invulnTimer = 0;
+    let happyFaceTimer = 0;
 
     const player = {
       x: 90,
       y: 300,
-      radius: 16,
-      vy: 0
+      radius: 18,
+      vy: 0,
+      trail: []
     };
 
     let obstacles = [];
+    let bonuses = [];
+    let particles = [];
+    let bgStars = [];
     let spawnTimer = 0;
-    let speed = 260;
+    let fireworkTimer = 0;
+
+    kidsModeToggle.addEventListener("change", () => {
+      kidsMode = kidsModeToggle.checked;
+    });
+
+    function updatePowerBadges() {
+      shieldBadge.classList.toggle("active", hasShield);
+      magnetBadge.classList.toggle("active", magnetTimer > 0);
+      if (magnetTimer > 0) {
+        magnetBadge.textContent = `🧲 Μαγνήτης ${magnetTimer.toFixed(1)}s`;
+      }
+    }
+
+    function initBgStars() {
+      bgStars = [];
+      for (let i = 0; i < 42; i++) {
+        bgStars.push({
+          x: Math.random() * (width || 400),
+          y: Math.random() * (height || 700),
+          size: 1 + Math.random() * 2.2,
+          speedFactor: 0.2 + Math.random() * 0.5,
+          alpha: 0.25 + Math.random() * 0.65
+        });
+      }
+    }
 
     function resizeCanvas() {
       const rect = canvas.parentElement.getBoundingClientRect();
@@ -193,61 +816,231 @@
       if (!gameRunning) {
         player.y = height * 0.5;
       }
+      if (bgStars.length === 0) initBgStars();
     }
 
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
 
+    function showBanner(title, sub) {
+      bannerTitle.textContent = title;
+      bannerSub.textContent = sub;
+      levelBanner.classList.add("show");
+      clearTimeout(bannerTimeout);
+      bannerTimeout = setTimeout(() => {
+        levelBanner.classList.remove("show");
+      }, 2600);
+    }
+
+    function updateHud() {
+      const lvl = LEVELS[currentLevelIndex];
+      levelHud.textContent = `Πίστα ${lvl.num}/5`;
+      scoreHud.textContent = `Σκορ: ${score} / ${lvl.targetScore}`;
+      bestHud.textContent = `Ρεκόρ: ${bestScore}`;
+    }
+
+    function renderAwardsChips() {
+      awardsListEl.innerHTML = "";
+      earnedAwards.forEach((aw) => {
+        const span = document.createElement("span");
+        span.className = "award-chip";
+        span.textContent = aw;
+        awardsListEl.appendChild(span);
+      });
+    }
+
     function resetGame() {
       score = 0;
-      speed = 260;
-      spawnTimer = 0;
+      currentLevelIndex = 0;
+      earnedAwards = [];
       obstacles = [];
+      bonuses = [];
+      particles = [];
+      hasShield = false;
+      magnetTimer = 0;
+      invulnTimer = 0;
+      happyFaceTimer = 0;
+      updatePowerBadges();
+      spawnTimer = 0.5;
       player.y = height * 0.5;
       player.vy = 0;
-      scoreEl.textContent = `Σκορ: 0`;
+      player.trail = [];
+      victoryMode = false;
+      trophyDisplay.classList.remove("grand");
+      updateHud();
     }
 
     function startGame() {
+      unlockAudio();
       resetGame();
       gameRunning = true;
       overlay.classList.add("hidden");
+      startHappyMusic();
+      const lvl = LEVELS[0];
+      showBanner(
+        `Πίστα 1: ${lvl.name}${kidsMode ? " (Παιδική)" : ""}`,
+        `Στόχος: ${lvl.targetScore} πόντοι`
+      );
       lastTime = performance.now();
+      cancelAnimationFrame(animationId);
+      animationId = requestAnimationFrame(loop);
+    }
+
+    function spawnExplosion(x, y, color, count = 18) {
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+        const spd = 70 + Math.random() * 190;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd,
+          life: 0.55 + Math.random() * 0.3,
+          maxLife: 0.85,
+          color,
+          size: 3 + Math.random() * 3
+        });
+      }
+    }
+
+    function launchFirework() {
+      const fx = width * (0.18 + Math.random() * 0.64);
+      const fy = height * (0.15 + Math.random() * 0.42);
+      const palette = ["#fde047", "#38bdf8", "#f43f5e", "#34d399", "#e879f9", "#fb923c"];
+      const color = palette[Math.floor(Math.random() * palette.length)];
+      spawnExplosion(fx, fy, color, 34);
+      playFireworkPop();
+    }
+
+    function triggerVictory() {
+      gameRunning = false;
+      victoryMode = true;
+      holding = false;
+
+      const grandAward = LEVELS[4].award;
+      if (!earnedAwards.includes(grandAward)) {
+        earnedAwards.push(grandAward);
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem("neon_tap_best", bestScore);
+      }
+      updateHud();
+      playVictorySound();
+
+      trophyDisplay.textContent = "🏆";
+      trophyDisplay.classList.add("grand");
+      titleEl.style.color = "#fde047";
+      titleEl.textContent = "Συγχαρητήρια! Τερμάτισες το Παιχνίδι!";
+      subtitleEl.textContent = `Ολοκλήρωσες και τις 5 πίστες με τελικό σκορ ${score} πόντους και κέρδισες το Μεγάλο Βραβείο!`;
+      renderAwardsChips();
+      startBtn.textContent = "Παίξε Ξανά από την Αρχή";
+      overlay.classList.remove("hidden");
+
+      for (let i = 0; i < 4; i++) {
+        setTimeout(() => {
+          if (victoryMode) launchFirework();
+        }, i * 280);
+      }
+      fireworkTimer = 0.55;
+      lastTime = performance.now();
+      cancelAnimationFrame(animationId);
       animationId = requestAnimationFrame(loop);
     }
 
     function gameOver() {
       gameRunning = false;
+      victoryMode = false;
       holding = false;
       cancelAnimationFrame(animationId);
       playGameOverSound();
 
+      const lvl = LEVELS[currentLevelIndex];
+      spawnExplosion(player.x, player.y, lvl.ballColor, 26);
+      draw();
+
       if (score > bestScore) {
         bestScore = score;
         localStorage.setItem("neon_tap_best", bestScore);
-        bestEl.textContent = `Ρεκόρ: ${bestScore}`;
+        bestHud.textContent = `Ρεκόρ: ${bestScore}`;
       }
 
+      trophyDisplay.classList.remove("grand");
+      trophyDisplay.textContent = earnedAwards.length > 0 ? "🏅" : "😵";
+      titleEl.style.color = "#38bdf8";
       titleEl.textContent = "Game Over!";
-      subtitleEl.textContent = `Τελικό σκορ: ${score} (Ρεκόρ: ${bestScore})`;
-      startBtn.textContent = "Παίξε Ξανά";
+      subtitleEl.textContent = `Έφτασες στην Πίστα ${lvl.num}/5 (${lvl.name}) με σκορ ${score} (Ρεκόρ: ${bestScore}).`;
+      renderAwardsChips();
+      startBtn.textContent = "Προσπάθησε Ξανά";
       overlay.classList.remove("hidden");
     }
 
+    function addScore(points) {
+      score += points;
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem("neon_tap_best", bestScore);
+      }
+
+      const currentLvl = LEVELS[currentLevelIndex];
+      if (score >= currentLvl.targetScore) {
+        if (currentLevelIndex < LEVELS.length - 1) {
+          earnedAwards.push(currentLvl.award);
+          currentLevelIndex += 1;
+          const nextLvl = LEVELS[currentLevelIndex];
+          happyFaceTimer = 1.4;
+          playLevelUpSound();
+          spawnExplosion(player.x, player.y, nextLvl.ballColor, 24);
+          showBanner(
+            `Πίστα ${nextLvl.num}: ${nextLvl.name}!`,
+            `Κέρδισες: ${currentLvl.award}`
+          );
+        } else {
+          updateHud();
+          triggerVictory();
+          return;
+        }
+      }
+      updateHud();
+    }
+
     function spawnObstacle() {
-      const gapHeight = Math.max(135, height * 0.24);
-      const margin = 70;
-      const maxTop = height - gapHeight - margin;
-      const topHeight = margin + Math.random() * Math.max(40, maxTop - margin);
-      const obsWidth = 44;
+      const lvl = LEVELS[currentLevelIndex];
+      const gapMult = kidsMode ? 1.18 : 1;
+      const gapHeight = Math.min(height * 0.65, Math.max(215, height * lvl.gapRatio * gapMult));
+      const minBar = kidsMode ? 35 : 45;
+      const maxTop = Math.max(minBar + 20, height - gapHeight - minBar);
+      const topHeight = minBar + Math.random() * (maxTop - minBar);
+      const obsWidth = 40;
+      const obsX = width + obsWidth;
 
       obstacles.push({
-        x: width + obsWidth,
+        x: obsX,
         width: obsWidth,
         topHeight,
         bottomY: topHeight + gapHeight,
         passed: false
       });
+
+      if (Math.random() < 0.7) {
+        const roll = Math.random();
+        let kind = "star";
+        if (!hasShield && roll < 0.22) {
+          kind = "shield";
+        } else if (magnetTimer <= 0 && roll >= 0.22 && roll < 0.44) {
+          kind = "magnet";
+        }
+
+        const bonusY = topHeight + gapHeight * 0.5;
+        bonuses.push({
+          x: obsX + obsWidth * 0.5,
+          y: bonusY,
+          radius: 15,
+          kind,
+          pulse: Math.random() * Math.PI * 2
+        });
+      }
     }
 
     function circleRectCollision(cx, cy, cr, rx, ry, rw, rh) {
@@ -255,7 +1048,7 @@
       const closestY = Math.max(ry, Math.min(cy, ry + rh));
       const dx = cx - closestX;
       const dy = cy - closestY;
-      return (dx * dx + dy * dy) < (cr * cr);
+      return dx * dx + dy * dy < cr * cr;
     }
 
     canvas.addEventListener("pointerdown", (e) => {
@@ -280,81 +1073,359 @@
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
 
-      update(dt);
-      draw();
-
       if (gameRunning) {
+        update(dt);
+        draw();
+        if (gameRunning || victoryMode) {
+          animationId = requestAnimationFrame(loop);
+        }
+      } else if (victoryMode) {
+        updateVictoryFireworks(dt);
+        draw();
         animationId = requestAnimationFrame(loop);
       }
     }
 
-    function update(dt) {
-      speed = Math.min(540, speed + dt * 8);
+    function updateVictoryFireworks(dt) {
+      fireworkTimer -= dt;
+      if (fireworkTimer <= 0) {
+        launchFirework();
+        fireworkTimer = 0.55 + Math.random() * 0.45;
+      }
+      updateParticles(dt);
+    }
 
-      const thrust = -1350;
-      const gravity = 1150;
+    function updateParticles(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 180 * dt;
+        p.life -= dt;
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+    }
+
+    function update(dt) {
+      const lvl = LEVELS[currentLevelIndex];
+      const speed = lvl.speed * (kidsMode ? 0.72 : 1);
+
+      if (invulnTimer > 0) invulnTimer = Math.max(0, invulnTimer - dt);
+      if (happyFaceTimer > 0) happyFaceTimer = Math.max(0, happyFaceTimer - dt);
+      if (magnetTimer > 0) {
+        magnetTimer = Math.max(0, magnetTimer - dt);
+        updatePowerBadges();
+      }
+
+      for (const s of bgStars) {
+        s.x -= speed * s.speedFactor * dt;
+        if (s.x < 0) {
+          s.x = width;
+          s.y = Math.random() * height;
+        }
+      }
+
+      const thrust = kidsMode ? -860 : -1050;
+      const gravity = kidsMode ? 690 : 860;
       player.vy += (holding ? thrust : gravity) * dt;
-      player.vy *= 0.94;
+      player.vy *= 0.92;
       player.y += player.vy * dt;
+
+      player.trail.push({ x: player.x, y: player.y });
+      if (player.trail.length > 10) player.trail.shift();
 
       if (player.y - player.radius < 0) {
         player.y = player.radius;
         player.vy = 0;
       }
       if (player.y + player.radius > height) {
-        gameOver();
-        return;
+        player.y = height - player.radius;
+        player.vy = 0;
       }
 
       spawnTimer -= dt;
       if (spawnTimer <= 0) {
         spawnObstacle();
-        spawnTimer = Math.max(0.95, 1.55 - (speed - 260) / 700);
+        spawnTimer = (1.65 - currentLevelIndex * 0.06) * (kidsMode ? 1.2 : 1);
       }
+
+      const hitRadius = player.radius * (kidsMode ? 0.68 : 0.78);
 
       for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
         obs.x -= speed * dt;
 
-        const hitTop = circleRectCollision(player.x, player.y, player.radius, obs.x, 0, obs.width, obs.topHeight);
-        const hitBottom = circleRectCollision(player.x, player.y, player.radius, obs.x, obs.bottomY, obs.width, height - obs.bottomY);
+        const hitTop = circleRectCollision(player.x, player.y, hitRadius, obs.x, 0, obs.width, obs.topHeight);
+        const hitBottom = circleRectCollision(player.x, player.y, hitRadius, obs.x, obs.bottomY, obs.width, height - obs.bottomY);
 
-        if (hitTop || hitBottom) {
-          gameOver();
-          return;
+        if ((hitTop || hitBottom) && invulnTimer <= 0) {
+          if (hasShield) {
+            hasShield = false;
+            invulnTimer = 1.0;
+            updatePowerBadges();
+            playShieldBlockSound();
+            spawnExplosion(player.x, player.y, "#67e8f9", 22);
+            obs.x = -100;
+            continue;
+          } else {
+            gameOver();
+            return;
+          }
         }
 
         if (!obs.passed && obs.x + obs.width < player.x) {
           obs.passed = true;
-          score += 1;
-          scoreEl.textContent = `Σκορ: ${score}`;
           playScoreSound();
+          addScore(1);
+          if (!gameRunning) return;
         }
 
         if (obs.x + obs.width < -20) {
           obstacles.splice(i, 1);
         }
       }
+
+      for (let i = bonuses.length - 1; i >= 0; i--) {
+        const b = bonuses[i];
+        b.x -= speed * dt;
+        b.pulse += dt * 6;
+
+        if (magnetTimer > 0) {
+          const dxM = player.x - b.x;
+          const dyM = player.y - b.y;
+          const distM = Math.hypot(dxM, dyM);
+          if (distM < 240 && distM > 1) {
+            b.x += (dxM / distM) * 340 * dt;
+            b.y += (dyM / distM) * 340 * dt;
+          }
+        }
+
+        const dx = player.x - b.x;
+        const dy = player.y - b.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < player.radius + b.radius + 8) {
+          bonuses.splice(i, 1);
+          happyFaceTimer = 1.1;
+
+          if (b.kind === "shield") {
+            hasShield = true;
+            updatePowerBadges();
+            playPowerUpSound();
+            spawnExplosion(b.x, b.y, "#67e8f9", 18);
+          } else if (b.kind === "magnet") {
+            magnetTimer = 7.0;
+            updatePowerBadges();
+            playPowerUpSound();
+            spawnExplosion(b.x, b.y, "#f472b6", 18);
+          } else {
+            playBonusSound();
+            spawnExplosion(b.x, b.y, "#fde047", 18);
+            addScore(3);
+            if (!gameRunning) return;
+          }
+          continue;
+        }
+
+        if (b.x < -30) {
+          bonuses.splice(i, 1);
+        }
+      }
+
+      updateParticles(dt);
+    }
+
+    function drawStar(cx, cy, spikes, outerR, innerR, rotation) {
+      let rot = (Math.PI / 2) * 3 + rotation;
+      const step = Math.PI / spikes;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR);
+      for (let i = 0; i < spikes; i++) {
+        ctx.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR);
+        rot += step;
+        ctx.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR);
+        rot += step;
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawBallFace(cx, cy, r) {
+      let nearObstacle = false;
+      for (const obs of obstacles) {
+        if (Math.abs(obs.x + obs.width * 0.5 - cx) < 95) {
+          nearObstacle = true;
+          break;
+        }
+      }
+
+      ctx.save();
+      ctx.fillStyle = "#0b0f19";
+      ctx.strokeStyle = "#0b0f19";
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+
+      const eyeY = cy - r * 0.14;
+      const leftEyeX = cx - r * 0.28;
+      const rightEyeX = cx + r * 0.22;
+
+      if (happyFaceTimer > 0) {
+        ctx.beginPath();
+        ctx.arc(leftEyeX, eyeY + 1, r * 0.14, Math.PI * 1.15, Math.PI * 1.85);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(rightEyeX, eyeY + 1, r * 0.14, Math.PI * 1.15, Math.PI * 1.85);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(cx - r * 0.03, cy + r * 0.12, r * 0.34, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+      } else if (nearObstacle && !hasShield) {
+        ctx.beginPath();
+        ctx.arc(leftEyeX, eyeY, r * 0.13, 0, Math.PI * 2);
+        ctx.arc(rightEyeX, eyeY, r * 0.13, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(cx - r * 0.03, cy + r * 0.24, r * 0.14, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(leftEyeX, eyeY, r * 0.12, 0, Math.PI * 2);
+        ctx.arc(rightEyeX, eyeY, r * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(cx - r * 0.03, cy + r * 0.14, r * 0.28, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+      }
+
+      ctx.restore();
     }
 
     function draw() {
-      ctx.clearRect(0, 0, width, height);
+      const lvl = LEVELS[currentLevelIndex];
 
-      ctx.fillStyle = "#f43f5e";
-      for (const obs of obstacles) {
-        ctx.beginPath();
-        ctx.roundRect(obs.x, 0, obs.width, obs.topHeight, [0, 0, 10, 10]);
-        ctx.fill();
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+      bgGrad.addColorStop(0, lvl.bgTop);
+      bgGrad.addColorStop(1, lvl.bgBottom);
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, width, height);
 
+      for (const s of bgStars) {
+        ctx.globalAlpha = s.alpha;
+        ctx.fillStyle = lvl.starColor;
         ctx.beginPath();
-        ctx.roundRect(obs.x, obs.bottomY, obs.width, height - obs.bottomY, [10, 10, 0, 0]);
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
         ctx.fill();
       }
+      ctx.globalAlpha = 1;
 
-      ctx.fillStyle = "#38bdf8";
+      for (const obs of obstacles) {
+        ctx.fillStyle = lvl.obsColor;
+        ctx.beginPath();
+        ctx.roundRect(obs.x, 0, obs.width, obs.topHeight, [0, 0, 12, 12]);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.roundRect(obs.x, obs.bottomY, obs.width, height - obs.bottomY, [12, 12, 0, 0]);
+        ctx.fill();
+
+        ctx.fillStyle = lvl.obsAccent;
+        ctx.fillRect(obs.x + 6, Math.max(0, obs.topHeight - 6), obs.width - 12, 3);
+        ctx.fillRect(obs.x + 6, obs.bottomY + 3, obs.width - 12, 3);
+      }
+
+      for (const b of bonuses) {
+        const scale = 1 + Math.sin(b.pulse) * 0.14;
+        ctx.save();
+        if (b.kind === "shield") {
+          ctx.shadowColor = "rgba(103, 232, 249, 0.85)";
+          ctx.shadowBlur = 14;
+          ctx.fillStyle = "#22d3ee";
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.radius * scale, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#062430";
+          ctx.font = "bold 14px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("🛡️", b.x, b.y + 1);
+        } else if (b.kind === "magnet") {
+          ctx.shadowColor = "rgba(244, 114, 182, 0.85)";
+          ctx.shadowBlur = 14;
+          ctx.fillStyle = "#ec4899";
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.radius * scale, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 14px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("🧲", b.x, b.y + 1);
+        } else {
+          ctx.shadowColor = "rgba(250, 204, 21, 0.85)";
+          ctx.shadowBlur = 14;
+          ctx.fillStyle = "#facc15";
+          drawStar(b.x, b.y, 5, b.radius * scale, b.radius * 0.48 * scale, b.pulse * 0.4);
+        }
+        ctx.restore();
+      }
+
+      for (let i = 0; i < player.trail.length; i++) {
+        const t = player.trail[i];
+        const ratio = (i + 1) / player.trail.length;
+        ctx.globalAlpha = ratio * 0.25;
+        ctx.fillStyle = lvl.ballColor;
+        ctx.beginPath();
+        ctx.arc(t.x - (player.trail.length - i) * 2.5, t.y, player.radius * ratio * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      ctx.save();
+      if (invulnTimer > 0 && Math.floor(invulnTimer * 16) % 2 === 0) {
+        ctx.globalAlpha = 0.55;
+      }
+      ctx.shadowColor = lvl.ballGlow;
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = lvl.ballColor;
       ctx.beginPath();
       ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
       ctx.fill();
+
+      if (hasShield) {
+        ctx.strokeStyle = "#67e8f9";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius + 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (magnetTimer > 0) {
+        ctx.strokeStyle = "rgba(244, 114, 182, 0.45)";
+        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius + 11, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      drawBallFace(player.x, player.y, player.radius);
+      ctx.restore();
+
+      for (const p of particles) {
+        ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
     }
   </script>
 </body>
