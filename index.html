@@ -1,0 +1,361 @@
+﻿<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Neon Tap Dodge</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    body {
+      margin: 0;
+      background: #0b0f19;
+      color: #ffffff;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    #game-container {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      height: 100%;
+      max-height: 860px;
+      background: linear-gradient(180deg, #111827 0%, #090d16 100%);
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #hud {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      right: 18px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 18px;
+      font-weight: 700;
+      pointer-events: none;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(9, 13, 22, 0.78);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+    }
+
+    #overlay.hidden {
+      display: none;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 32px;
+      color: #38bdf8;
+    }
+
+    p {
+      margin: 0 0 24px;
+      color: #cbd5e1;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    button {
+      background: #38bdf8;
+      color: #090d16;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="hud">
+      <div id="score">Σκορ: 0</div>
+      <div id="best">Ρεκόρ: 0</div>
+    </div>
+    <div id="overlay">
+      <h1 id="title">Neon Tap Dodge</h1>
+      <p id="subtitle">Κράτα πατημένο στην οθόνη για να ανεβαίνεις, άφησε για να πέφτεις. Απόφυγε τις κόκκινες μπάρες!</p>
+      <button id="startBtn">Παίξε Τώρα</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const scoreEl = document.getElementById("score");
+    const bestEl = document.getElementById("best");
+    const overlay = document.getElementById("overlay");
+    const titleEl = document.getElementById("title");
+    const subtitleEl = document.getElementById("subtitle");
+    const startBtn = document.getElementById("startBtn");
+
+    let width = 0;
+    let height = 0;
+    let animationId = null;
+    let gameRunning = false;
+    let holding = false;
+
+    let score = 0;
+    let bestScore = Number(localStorage.getItem("neon_tap_best") || 0);
+    bestEl.textContent = `Ρεκόρ: ${bestScore}`;
+
+    // Ήχοι χωρίς εξωτερικά αρχεία (Web Audio API)
+    let audioCtx = null;
+
+    function playTone(freq, duration, type = "sine", volume = 0.12) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      if (!audioCtx) {
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+      gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function playScoreSound() {
+      playTone(660, 0.12, "sine", 0.12);
+      setTimeout(() => playTone(880, 0.14, "sine", 0.12), 70);
+    }
+
+    function playGameOverSound() {
+      playTone(240, 0.22, "sawtooth", 0.14);
+      setTimeout(() => playTone(150, 0.3, "sawtooth", 0.14), 120);
+    }
+
+    const player = {
+      x: 90,
+      y: 300,
+      radius: 16,
+      vy: 0
+    };
+
+    let obstacles = [];
+    let spawnTimer = 0;
+    let speed = 260;
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      width = rect.width;
+      height = rect.height;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      player.x = Math.min(100, width * 0.22);
+      if (!gameRunning) {
+        player.y = height * 0.5;
+      }
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    function resetGame() {
+      score = 0;
+      speed = 260;
+      spawnTimer = 0;
+      obstacles = [];
+      player.y = height * 0.5;
+      player.vy = 0;
+      scoreEl.textContent = `Σκορ: 0`;
+    }
+
+    function startGame() {
+      resetGame();
+      gameRunning = true;
+      overlay.classList.add("hidden");
+      lastTime = performance.now();
+      animationId = requestAnimationFrame(loop);
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      holding = false;
+      cancelAnimationFrame(animationId);
+      playGameOverSound();
+
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem("neon_tap_best", bestScore);
+        bestEl.textContent = `Ρεκόρ: ${bestScore}`;
+      }
+
+      titleEl.textContent = "Game Over!";
+      subtitleEl.textContent = `Τελικό σκορ: ${score} (Ρεκόρ: ${bestScore})`;
+      startBtn.textContent = "Παίξε Ξανά";
+      overlay.classList.remove("hidden");
+    }
+
+    function spawnObstacle() {
+      const gapHeight = Math.max(135, height * 0.24);
+      const margin = 70;
+      const maxTop = height - gapHeight - margin;
+      const topHeight = margin + Math.random() * Math.max(40, maxTop - margin);
+      const obsWidth = 44;
+
+      obstacles.push({
+        x: width + obsWidth,
+        width: obsWidth,
+        topHeight,
+        bottomY: topHeight + gapHeight,
+        passed: false
+      });
+    }
+
+    function circleRectCollision(cx, cy, cr, rx, ry, rw, rh) {
+      const closestX = Math.max(rx, Math.min(cx, rx + rw));
+      const closestY = Math.max(ry, Math.min(cy, ry + rh));
+      const dx = cx - closestX;
+      const dy = cy - closestY;
+      return (dx * dx + dy * dy) < (cr * cr);
+    }
+
+    canvas.addEventListener("pointerdown", (e) => {
+      if (!gameRunning) return;
+      e.preventDefault();
+      holding = true;
+    });
+
+    window.addEventListener("pointerup", () => {
+      holding = false;
+    });
+
+    window.addEventListener("pointercancel", () => {
+      holding = false;
+    });
+
+    startBtn.addEventListener("click", startGame);
+
+    let lastTime = performance.now();
+
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      update(dt);
+      draw();
+
+      if (gameRunning) {
+        animationId = requestAnimationFrame(loop);
+      }
+    }
+
+    function update(dt) {
+      speed = Math.min(540, speed + dt * 8);
+
+      const thrust = -1350;
+      const gravity = 1150;
+      player.vy += (holding ? thrust : gravity) * dt;
+      player.vy *= 0.94;
+      player.y += player.vy * dt;
+
+      if (player.y - player.radius < 0) {
+        player.y = player.radius;
+        player.vy = 0;
+      }
+      if (player.y + player.radius > height) {
+        gameOver();
+        return;
+      }
+
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) {
+        spawnObstacle();
+        spawnTimer = Math.max(0.95, 1.55 - (speed - 260) / 700);
+      }
+
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.x -= speed * dt;
+
+        const hitTop = circleRectCollision(player.x, player.y, player.radius, obs.x, 0, obs.width, obs.topHeight);
+        const hitBottom = circleRectCollision(player.x, player.y, player.radius, obs.x, obs.bottomY, obs.width, height - obs.bottomY);
+
+        if (hitTop || hitBottom) {
+          gameOver();
+          return;
+        }
+
+        if (!obs.passed && obs.x + obs.width < player.x) {
+          obs.passed = true;
+          score += 1;
+          scoreEl.textContent = `Σκορ: ${score}`;
+          playScoreSound();
+        }
+
+        if (obs.x + obs.width < -20) {
+          obstacles.splice(i, 1);
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.fillStyle = "#f43f5e";
+      for (const obs of obstacles) {
+        ctx.beginPath();
+        ctx.roundRect(obs.x, 0, obs.width, obs.topHeight, [0, 0, 10, 10]);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.roundRect(obs.x, obs.bottomY, obs.width, height - obs.bottomY, [10, 10, 0, 0]);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = "#38bdf8";
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  </script>
+</body>
+</html>
